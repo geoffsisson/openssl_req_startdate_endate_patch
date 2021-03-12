@@ -53,7 +53,7 @@ emailAddress            = optional
 looks tedious and unsightly, it is!
 
 With this OpenSSL patch, you can generate self-signed certificates
-using this considerably less onerous method:
+with start and end dates using this considerably less onerous method:
 ```
 $ openssl req -x509 -newkey rsa:4096 -sha256 \
     -keyout key.pem -out cert.pem \
