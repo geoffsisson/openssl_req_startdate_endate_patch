@@ -1,10 +1,11 @@
 # OpenSSL "startdate" and aenddate" patch for self-signed certificates
 
-Do you need to use OpenSSL to create self-signed certificates with
-specific start and end dates? If so, you've probably discovered
-that you need to create a CA certificate to do this. While this
-isn't prohibitively difficult, it does require several steps and
-some contortions to avoid creating a CA on the local host.
+Do you need to use OpenSSL to create self-signed server certificates
+with specific start and end dates? If so, you've probably discovered
+that you need to create a full CA certificate to accomplish this.
+While this isn't prohibitively difficult, it does require several
+steps and some contortions to avoid creating the framework for a CA
+or interfering with an existing CA.
 
 The most painless way I've found to do this is to use Bash with
 process substitution to read the OpenSSL configurations. This avoids
@@ -49,10 +50,10 @@ emailAddress            = optional
 
 `openssl ca` requires that the values `default_ca`, `database`,
 `new_certs_dir`, `rand_serial`, and `policy` exist. If this
-looks painful and unsightly, it is!
+looks tedious and unsightly, it is!
 
-With this OpenSSL patch, you can now generate self-signed certificates
-using this considerably less painful method:
+With this OpenSSL patch, you can generate self-signed certificates
+using this considerably less onerous method:
 ```
 $ openssl req -x509 -newkey rsa:4096 -sha256 \
     -keyout key.pem -out cert.pem \
@@ -64,5 +65,5 @@ distinguished_name = req
 ')
 ```
 Note that even though there's a dependency on the config file, it's
-only one value (```distinguished_name```), and also no extraneous files
+only one value (`distinguished_name`), and also no extraneous files
 are created that require cleanup.
