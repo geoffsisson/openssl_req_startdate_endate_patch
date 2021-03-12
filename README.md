@@ -1,4 +1,4 @@
-# OpenSSL "startdate" and aenddate" patch for self-signed certificates
+# OpenSSL "startdate" and "enddate" patch for self-signed certificates
 
 Do you need to use OpenSSL to create self-signed server certificates
 with specific start and end dates? If so, you've probably discovered
