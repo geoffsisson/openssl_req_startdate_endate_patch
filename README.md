@@ -1,16 +1,15 @@
-# OpenSSL "startdate" and "enddate" patch for self-signed certificates
+# OpenSSL "startdate" and aenddate" patch for self-signed certificates
 
 Do you need to use OpenSSL to create self-signed certificates with
 specific start and end dates? If so, you've probably discovered
-that you need to create a Certificate Authority (CA) certificate
-to do this. While this isn't prohibitively difficult, it does
-require several steps and some contortions to avoid creating a CA
-on the local host.
+that you need to create a CA certificate to do this. While this
+isn't prohibitively difficult, it does require several steps and
+some contortions to avoid creating a CA on the local host.
 
 The most painless way I've found to do this is to use Bash with
-process substitution to read the OpenSSL configurations, to avoid
-any dependency on the state of the default openssl configuration
-file (typically named `openssl.cnf`).
+process substitution to read the OpenSSL configurations. This avoids
+any dependency on any existing OpenSSL configuration file (usually
+named `openssl.cnf`).
 
 The following procedure uses the bare minimum commands and configuration
 file to create a self-signed certificate with a start date of
@@ -59,8 +58,10 @@ $ openssl req -x509 -newkey rsa:4096 -sha256 \
     -keyout key.pem -out cert.pem \
     -startdate 20210101000000Z -enddate 20211231235959Z \
     -subj "/C=US/ST=CA/L=San Francisco/O=Example Corp./CN=example.com" \
-    -config <(echo '[ req ]
-distinguished_name = req')
+    -config <(echo '
+[ req ]
+distinguished_name = req
+')
 ```
 Note that even though there's a dependency on the config file, it's
 only one value (```distinguished_name```), and also no extraneous files
