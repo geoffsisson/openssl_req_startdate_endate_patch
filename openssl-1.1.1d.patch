@@ -81,7 +81,7 @@ diff -rup a/apps/req.c b/apps/req.c
 +                int tdays;
 +
 +                if (!ASN1_TIME_diff(&tdays, NULL, NULL,
-+                    X509_get0_notAfter(ret)))
++                    X509_get0_notAfter(x509ss)))
 +                    goto end;
 +                days = tdays;
 +            }
