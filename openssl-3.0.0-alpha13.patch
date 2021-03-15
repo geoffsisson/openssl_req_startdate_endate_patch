@@ -1,0 +1,124 @@
+diff -rup a/apps/req.c b/apps/req.c
+--- a/apps/req.c	2021-03-11 08:47:12.000000000 -0500
++++ b/apps/req.c	2021-03-14 19:34:52.982295745 -0400
+@@ -86,7 +86,7 @@ typedef enum OPTION_choice {
+     OPT_PKEYOPT, OPT_SIGOPT, OPT_VFYOPT, OPT_BATCH, OPT_NEWHDR, OPT_MODULUS,
+     OPT_VERIFY, OPT_NOENC, OPT_NODES, OPT_NOOUT, OPT_VERBOSE, OPT_UTF8,
+     OPT_NAMEOPT, OPT_REQOPT, OPT_SUBJ, OPT_SUBJECT, OPT_TEXT, OPT_X509,
+-    OPT_CA, OPT_CAKEY,
++    OPT_CA, OPT_CAKEY, OPT_STARTDATE, OPT_ENDDATE,
+     OPT_MULTIVALUE_RDN, OPT_DAYS, OPT_SET_SERIAL,
+     OPT_COPY_EXTENSIONS, OPT_ADDEXT, OPT_EXTENSIONS,
+     OPT_REQEXTS, OPT_PRECERT, OPT_MD,
+@@ -125,6 +125,9 @@ const OPTIONS req_options[] = {
+      "Print the subject of the output request or cert"},
+     {"multivalue-rdn", OPT_MULTIVALUE_RDN, '-',
+      "Deprecated; multi-valued RDNs support is always on."},
++    {"startdate", OPT_STARTDATE, 's', "Cert notBefore, YYMMDDHHMMSSZ"},
++    {"enddate", OPT_ENDDATE, 's',
++     "YYMMDDHHMMSSZ cert notAfter (overrides -days)"},
+     {"days", OPT_DAYS, 'p', "Number of days cert is valid for"},
+     {"set_serial", OPT_SET_SERIAL, 's', "Serial number to use"},
+     {"copy_extensions", OPT_COPY_EXTENSIONS, 's',
+@@ -252,6 +255,7 @@ int req_main(int argc, char **argv)
+     char *req_exts = NULL, *subj = NULL;
+     X509_NAME *fsubj = NULL;
+     char *template = default_config_file, *keyout = NULL;
++    char *startdate = NULL, *enddate = NULL;
+     const char *keyalg = NULL;
+     OPTION_CHOICE o;
+     int days = UNSET_DAYS;
+@@ -409,6 +413,12 @@ int req_main(int argc, char **argv)
+         case OPT_CAKEY:
+             CAkeyfile = opt_arg();
+             break;
++        case OPT_STARTDATE:
++            startdate = opt_arg();
++            break;
++        case OPT_ENDDATE:
++            enddate = opt_arg();
++            break;
+         case OPT_DAYS:
+             days = atoi(opt_arg());
+             if (days < -1) {
+@@ -488,6 +498,10 @@ int req_main(int argc, char **argv)
+     if (!gen_x509) {
+         if (days != UNSET_DAYS)
+             BIO_printf(bio_err, "Ignoring -days without -x509; not generating a certificate\n");
++        if (startdate != NULL)
++            BIO_printf(bio_err, "Ignoring -startdate without -x509; not generating a certificate\n");
++        if (enddate != NULL)
++            BIO_printf(bio_err, "Ignoring -enddate without -x509; not generating a certificate\n");
+         if (ext_copy == EXT_COPY_NONE)
+             BIO_printf(bio_err, "Ignoring -copy_extensions 'none' when -x509 is not given\n");
+     }
+@@ -834,11 +848,33 @@ int req_main(int argc, char **argv)
+ 
+             if (!X509_set_issuer_name(new_x509, issuer))
+                 goto end;
++            if (startdate != NULL && !ASN1_TIME_set_string_X509(NULL, startdate)) {
++                BIO_printf(bio_err,
++                           "start date is invalid, it should be YYMMDDHHMMSSZ or YYYYMMDDHHMMSSZ\n");
++                goto end;
++            }
++            if (enddate != NULL && !ASN1_TIME_set_string_X509(NULL, enddate)) {
++                BIO_printf(bio_err,
++                           "end date is invalid, it should be YYMMDDHHMMSSZ or YYYYMMDDHHMMSSZ\n");
++                goto end;
++            }
+             if (days == UNSET_DAYS) {
+                 days = DEFAULT_DAYS;
+             }
+-            if (!set_cert_times(new_x509, NULL, NULL, days))
++            if (enddate == NULL && days == 0) {
++                BIO_printf(bio_err, "cannot lookup how many days to certify for\n");
++                goto end;
++            }
++            if (!set_cert_times(new_x509, statdate, enddate, days))
+                 goto end;
++            if (enddate != NULL) {
++                int tdays;
++
++                if (!ASN1_TIME_diff(&tdays, NULL, NULL,
++                    X509_get0_notAfter(new_x509)))
++                    goto end;
++                days = tdays;
++            }
+             if (!X509_set_subject_name(new_x509, n_subj))
+                 goto end;
+             if (!pub_key || !X509_set_pubkey(new_x509, pub_key))
+diff -rup a/doc/man1/openssl-req.pod.in b/doc/man1/openssl-req.pod.in
+--- a/doc/man1/openssl-req.pod.in	2021-03-11 08:47:12.000000000 -0500
++++ b/doc/man1/openssl-req.pod.in	2021-03-14 19:47:20.813588276 -0400
+@@ -35,6 +35,8 @@ B<openssl> B<req>
+ [B<-x509>]
+ [B<-CA> I<filename>|I<uri>]
+ [B<-CAkey> I<filename>|I<uri>]
++[B<-startdate date>]
++[B<-enddate date>]
+ [B<-days> I<n>]
+ [B<-set_serial> I<n>]
+ [B<-newhdr>]
+@@ -287,6 +289,22 @@ Sets the "CA" private key to sign a cert
+ The private key must match the public key of the certificate given with B<-CA>.
+ If this option is not provided then the key must be present in the B<-CA> input.
+ 
++=item B<-startdate date>
++
++When the B<-x509> option is being used this allows the start date to
++be explicitly set. The format of the date is YYMMDDHHMMSSZ (the same
++as an ASN1 UTCTime structure), or YYYYMMDDHHMMSSZ (the same as an ASN1
++GeneralizedTime structure). In both formats, seconds SS and timezone Z
++must be present.
++
++=item B<-enddate date>
++
++When the B<-x509> option is being used this allows the expiry date to
++be explicitly set. The format of the date is YYMMDDHHMMSSZ (the same
++as an ASN1 UTCTime structure), or YYYYMMDDHHMMSSZ (the same as an ASN1
++GeneralizedTime structure). In both formats, seconds SS and timezone Z
++must be present.
++
+ =item B<-days> I<n>
+ 
+ When the B<-x509> option is being used this specifies the number of
