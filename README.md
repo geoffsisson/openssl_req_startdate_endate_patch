@@ -17,14 +17,14 @@ file to create a self-signed certificate with a start date of
 January 1, 2021 and an end date of December 31, 2021:
 
 ```
-$ openssl genrsa -out key.pem 4096
+openssl genrsa -out key.pem 4096
 
-$ openssl req -new -key key.pem -out csr.pem \
+openssl req -new -key key.pem -out csr.pem \
     -subj "/C=US/ST=CA/L=San Francisco/O=Example Corp./CN=example.com"
 
-$ touch index.txt
+touch index.txt
 
-$ openssl ca -batch -selfsign -md sha256 -rand_serial \
+openssl ca -batch -selfsign -md sha256 -rand_serial \
     -in csr.pem -out cert.pem -keyfile key.pem \
     -startdate 20210101000000Z -enddate 20211231235959Z \
     -config <(echo '
@@ -55,7 +55,7 @@ looks tedious and unsightly, it is!
 With this OpenSSL patch, you can generate self-signed certificates
 with start and end dates using this considerably less onerous method:
 ```
-$ openssl req -x509 -newkey rsa:4096 -sha256 \
+openssl req -x509 -newkey rsa:4096 -sha256 \
     -keyout key.pem -out cert.pem \
     -startdate 20210101000000Z -enddate 20211231235959Z \
     -subj "/C=US/ST=CA/L=San Francisco/O=Example Corp./CN=example.com" \
